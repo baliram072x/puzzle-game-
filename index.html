@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Sliding Puzzle Professional</title>
+  <style>
+    body {
+      background-color: #f5f5f5;
+      font-family: 'Segoe UI', sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+    }
+    canvas {
+      background-color: #f5f5f5;
+      display: block;
+      margin: 20px auto;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      border-radius: 15px;
+    }
+    .buttons {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 15px;
+    }
+    button {
+      border: none;
+      color: white;
+      font-size: 16px;
+      border-radius: 10px;
+      padding: 8px 16px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .green { background: #1ecc6a; }
+    .green:hover { background: #36d182; }
+    .blue { background: #208cde; }
+    .blue:hover { background: #4db6f2; }
+    .yellow { background: #ffce56; color: black; }
+    .yellow:hover { background: #f6e759; }
+    h1 {
+      color: #3e4453;
+    }
+    #message {
+      font-size: 24px;
+      color: #22c55e;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Sliding Puzzle</h1>
+  <canvas id="puzzle" width="540" height="420"></canvas>
+
+  <div class="buttons">
+    <button id="refresh" class="green">Refresh</button>
+    <button id="new" class="blue">New</button>
+    <button id="easy" class="yellow">Easy</button>
+    <button id="medium" class="yellow">Medium</button>
+    <button id="hard" class="yellow">Hard</button>
+  </div>
+
+  <div id="message"></div>
+
+  <script>
+    const canvas = document.getElementById('puzzle');
+    const ctx = canvas.getContext('2d');
+
+    const colors = {
+      blue: '#208cde',
+      darkGray: '#3e4453',
+      white: '#f5f5f5'
+    };
+
+    const levels = { Easy: 3, Medium: 4, Hard: 5 };
+    let currentLevel = 'Easy';
+    let size = levels[currentLevel];
+    let board = [];
+    let win = false;
+
+    function getSolvedBoard(sz) {
+      let arr = [];
+      for (let i = 1; i < sz * sz; i++) arr.push(i);
+      arr.push(0);
+      return arr;
+    }
+
+    function newBoard(sz) {
+      let board = getSolvedBoard(sz).slice();
+      for (let i = 0; i < 100 * sz; i++) {
+        const zero = board.indexOf(0);
+        const moves = [];
+        const row = Math.floor(zero / sz);
+        const col = zero % sz;
+        if (row > 0) moves.push(zero - sz);
+        if (row < sz - 1) moves.push(zero + sz);
+        if (col > 0) moves.push(zero - 1);
+        if (col < sz - 1) moves.push(zero + 1);
+        const swap = moves[Math.floor(Math.random() * moves.length)];
+        [board[zero], board[swap]] = [board[swap], board[zero]];
+      }
+      return board;
+    }
+
+    function drawBoard() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const tileSize = 420 / size;
+      const offsetX = (canvas.width - tileSize * size) / 2;
+      const offsetY = 0;
+
+      board.forEach((tile, idx) => {
+        const x = (idx % size) * tileSize + offsetX;
+        const y = Math.floor(idx / size) * tileSize + offsetY;
+        if (tile) {
+          ctx.fillStyle = colors.blue;
+          roundRect(ctx, x + 6, y + 6, tileSize - 12, tileSize - 12, 15, true, false);
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = colors.darkGray;
+          roundRect(ctx, x + 6, y + 6, tileSize - 12, tileSize - 12, 15, false, true);
+
+          ctx.fillStyle = colors.white;
+          ctx.font = "bold 44px 'Segoe UI Black'";
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(tile, x + tileSize / 2, y + tileSize / 2);
+        }
+      });
+    }
+
+    function roundRect(ctx, x, y, width, height, radius, fill, stroke) {
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.lineTo(x + width - radius, y);
+      ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+      ctx.lineTo(x + width, y + height - radius);
+      ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+      ctx.lineTo(x + radius, y + height);
+      ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+      ctx.lineTo(x, y + radius);
+      ctx.quadraticCurveTo(x, y, x + radius, y);
+      ctx.closePath();
+      if (fill) ctx.fill();
+      if (stroke) ctx.stroke();
+    }
+
+    function isSolved() {
+      return JSON.stringify(board) === JSON.stringify(getSolvedBoard(size));
+    }
+
+    function moveTile(idx) {
+      const zero = board.indexOf(0);
+      const row0 = Math.floor(zero / size);
+      const col0 = zero % size;
+      const row = Math.floor(idx / size);
+      const col = idx % size;
+      if ((Math.abs(row0 - row) === 1 && col0 === col) || (Math.abs(col0 - col) === 1 && row0 === row)) {
+        [board[zero], board[idx]] = [board[idx], board[zero]];
+      }
+    }
+
+    canvas.addEventListener('click', (e) => {
+      if (win) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const tileSize = 420 / size;
+      const offsetX = (canvas.width - tileSize * size) / 2;
+      const offsetY = 0;
+      if (x > offsetX && x < offsetX + tileSize * size && y > offsetY && y < offsetY + tileSize * size) {
+        const col = Math.floor((x - offsetX) / tileSize);
+        const row = Math.floor((y - offsetY) / tileSize);
+        const idx = row * size + col;
+        moveTile(idx);
+        drawBoard();
+        if (isSolved()) {
+          document.getElementById('message').innerText = '🎉 Congratulations!';
+          win = true;
+        }
+      }
+    });
+
+    document.getElementById('refresh').onclick = () => { board = getSolvedBoard(size); win = false; drawBoard(); document.getElementById('message').innerText = ''; };
+    document.getElementById('new').onclick = () => { board = newBoard(size); win = false; drawBoard(); document.getElementById('message').innerText = ''; };
+    document.getElementById('easy').onclick = () => setLevel('Easy');
+    document.getElementById('medium').onclick = () => setLevel('Medium');
+    document.getElementById('hard').onclick = () => setLevel('Hard');
+
+    function setLevel(level) {
+      currentLevel = level;
+      size = levels[level];
+      board = newBoard(size);
+      win = false;
+      document.getElementById('message').innerText = '';
+      drawBoard();
+    }
+
+    function init() {
+      board = newBoard(size);
+      drawBoard();
+    }
+
+    init();
+  </script>
+</body>
+</html>
